@@ -61,19 +61,30 @@ def snap_unencrypted(id):
         else:
             print('Skipping {0}, volume is already encrypted')
 
-    print ('Waiting for snapshots to complete')
-
     ending_snaps = snapshot_ids(id)
     new_snaps = (list(set(ending_snaps) - set(starting_snaps)))
 
-    for snap in new_snaps:
-        snap.wait_until_completed()
+    for v in i.volumes.all():
+        for s in v.snapshots.all():
+            if s.id in new_snaps:
+                print('Waiting for snapshot {0} to complete'.format(s.id))
+                s.wait_until_completed()
+                print('Snapshot {0} of volume {1} created'.format(s.id, v.id))
 
     print ("Snapshots Complete")
+
+    return new_snaps
 
 def has_pending_snapshot(volume):
     snapshots = list(volume.snapshots.all())
     return snapshots and snapshots[0].state == 'pending'
+
+#def create_volumes(snapshots)
+#    
+#    for v in i.volumes.all():
+#        for s in v.snapshots.all():
+#            if s.id in snapshots:
+#                volume = ec2.create_volume
 
 if __name__ == '__main__':
     id = input("Please enter the instance ID: ")
@@ -96,6 +107,7 @@ and finally restarting the instance.
     go_ahead = input('Please enter yes if you wish to proceed - THIS INSTANCE WILL BE STOPPED: ')
     if go_ahead == 'yes':
         stop_instance(id)
-        snap_unencrypted(id)
+        new_snap_ids = snap_unencrypted(id)
+        print (new_snap_ids)
     else:
         print('\nNot proceeding with the volume encryption process, have a great day!\n\n')

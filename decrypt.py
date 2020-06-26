@@ -132,7 +132,12 @@ def create_volumes(snapshots,id):
                         DryRun = False,
                         MultiAttachEnabled= v.multi_attach_enabled
                     )
+
+                    print('New volume {0} created, waiting for it to become available'.format(new_volume.id))
+                    waiter.wait(VolumeIds=[new_volume.volume_id])
+                    print('New volume is now available')
                     volume_pairs.update( {v.id : new_volume.id})
+
                 else:
                     print('Creating encrypted volume of {0} from snapshot {1}.'.format(v.id, s.id))
                     new_volume = ec2.create_volume(
@@ -148,7 +153,6 @@ def create_volumes(snapshots,id):
                     print('New volume {0} created, waiting for it to become available'.format(new_volume.id))
                     waiter.wait(VolumeIds=[new_volume.volume_id])
                     print('New volume is now available')
-
                     volume_pairs.update( {v.id : new_volume.id})
 
     print('Creation of new encrypted volumes complete\n')
@@ -162,44 +166,52 @@ def attach_new(id,volume_map):
     ec2_client=boto3.client('ec2')
     waiter = ec2_client.get_waiter('volume_available')
 
+    #Loop through volumes, if volume needs to be replaced, detach it and attach the new volume
     for v in i.volumes.all():
-        print ('Detaching unencrypted volume {0} from instance {1} and relacing with volume {2}'.format(v.id, id, (volume_map[v.id])))
-        instance_device = (v.attachments[0]['Device'])
-        v.detach_from_instance(
-            Device = instance_device,
-            Force = False,
-            InstanceId = (id),
-        )
-        waiter.wait(VolumeIds=[v.volume_id])
-        i.attach_volume(
-            VolumeId = (volume_map[v.id]),
-            Device = instance_device,
-        )
+        if volume_map.has_key(v.id):
+            print ('Detaching unencrypted volume {0} from instance {1} and replacing with volume {2}'.format(v.id, id, (volume_map[v.id])))
+            instance_device = (v.attachments[0]['Device'])
+            v.detach_from_instance(
+                Device = instance_device,
+                Force = False,
+                InstanceId = (id),
+            )
+            waiter.wait(VolumeIds=[v.volume_id])
+            i.attach_volume(
+                VolumeId = (volume_map[v.id]),
+                Device = instance_device,
+            )
 
-    print ('All unencrypted volumes have now been replace with encrypted duplicates\n')
+    print ('All unencrypted volumes have now been replaced with encrypted duplicates\n')
 
     return
 
+### Text Blocks ###
+
+volume_text = ("\nHere is a list of the current volumes on this instance:\n"
+               "Includes Volume ID, status, size, and encryption state.\n")
+
+new_volume_process = ("\nYou have one or more volumes that are not encrypted. Do you want to encrypt these volumes?\n"
+                      "This will involve shutting down the instance,\n"
+                      "taking volume snapshots for all unencrypted volumes,\n"
+                      "creating new encrypted volumes from the snapshots,\n"
+                      "detaching the current volumes,\n"
+                      "attaching the new encrypted volumes,\n"
+                      "and finally restarting the instance.\n")
+
+process_complete = ("\nAll unencypted volumes have now been encrypted. Please validate your instance."
+                    "The unencrypted volumes have NOT been deleted in the event a rollback is necessary.\n")
 
 ### Main Program Logic ####
 if __name__ == '__main__':
     id = input("Please enter the instance ID: ")
-    print(''' 
-Here is a list of the current volumes on this instance:
-Includes Volume ID, status, size, and encryption state.\n''')
+    print (volume_text)
     unencrypted = list_volumes(id)
     if not unencrypted:
-        print('Congrads all of your drives are encrypted!!!')
+        print('\nCongrads all of your drives are encrypted!!!\n')
+        exit()
     else:
-        print('''
-You have one or more volumes that are not encrypted. Do you want to encrypt these volumes?\n
-This will involve shutting down the instance, 
-taking volume snapshots for all unencrypted volumes,
-creating new encrypted volumes from the snapshots,
-detaching the current volumes, 
-attaching the new encrypted volumes,
-and finally restarting the instance.
-''')
+        print(new_volume_process)
     go_ahead = input('Please enter yes if you wish to proceed - THIS INSTANCE WILL BE STOPPED: \n')
     if go_ahead == 'yes':
         print ('\n')
@@ -208,7 +220,6 @@ and finally restarting the instance.
         volume_ids = create_volumes(new_snap_ids,id)
         attach_new(id,volume_ids)
         start_instance(id)
-        print ('''All unencypted volumes have now been encrypted. Please validate your instance.
-The unencrypted volumes have NOT been deleted in the event a rollback is necessary.''')
+        print (process_complete)
     else:
         print('\nNot proceeding with the volume encryption process, have a great day!\n\n')

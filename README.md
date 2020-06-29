@@ -3,7 +3,7 @@ Finds unencrypted volumes associated with an ec2 instance, takes snapshots, crea
 
 Utilizes pipenv and the aws cli, please install.
 
-Run with **pipenv run python decrypt.py** *<aws_cli_proifile_name>*
+Run with **pipenv run python decrypt.py** *<aws_cli_profile_name>*
 if using default aws cli profile, no profile name arguement is necessary
 
 You will be prompted for the instance ID 

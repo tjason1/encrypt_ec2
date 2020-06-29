@@ -1,4 +1,9 @@
 # encrypt_ec2
-Finds unencrypted volumes associated with an ec2 instance, takes snapshots, creates new encrypted volumess, and switches the volumes on the instance out.
+Finds unencrypted volumes associated with an ec2 instance, takes snapshots, creates new encrypted volumes, and switches the volumes on the instance out.
 
-Untilizes pipenv, please install.
+Utilizes pipenv and the aws cli, please install.
+
+Run with pipenv run python decrypt.py <aws_cli_proifile_name>
+if using default aws cli profile, no profile name arguement is necessary
+
+You will be prompted for the instance ID 
